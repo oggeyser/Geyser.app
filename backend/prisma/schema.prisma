@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id                 Int        @id @default(autoincrement())
+  patente            String     @unique
+  permisoCirculacion DateTime
+  revisionTecnica    DateTime
+  seguroObligatorio  DateTime
+  revisionGases      DateTime
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  documents          Document[]
+}
+
+model Document {
+  id         Int      @id @default(autoincrement())
+  name       String
+  expiryDate DateTime
+  fileUrl    String
+  vehicleId  Int
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
+  createdAt  DateTime @default(now())
+}
