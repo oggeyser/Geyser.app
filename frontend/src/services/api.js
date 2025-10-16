@@ -2,6 +2,24 @@ import axios from "axios";
 
 const API_BASE_URL = "http://192.168.1.246:4000/api";
 
+// === RouteLogs ===
+export const getRouteLogs = async () => {
+  const res = await fetch('/api/route-logs');
+  return res.json();
+};
+
+export const createRouteLog = async (data) => {
+  const res = await fetch('/api/route-logs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const deleteRouteLog = async (id) => {
+  await fetch(`/api/route-logs/${id}`, { method: 'DELETE' });
+};
 
 export const getVehicles = async () => {
   const res = await axios.get(`${API_BASE_URL}/vehicles`);

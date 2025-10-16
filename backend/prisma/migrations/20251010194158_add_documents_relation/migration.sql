@@ -15,7 +15,7 @@
 
 */
 -- DropIndex
-DROP INDEX "public"."Vehicle_plateNumber_key";
+--DROP INDEX "public"."Vehicle_plateNumber_key";
 
 -- AlterTable
 ALTER TABLE "Vehicle" DROP COLUMN "brand",

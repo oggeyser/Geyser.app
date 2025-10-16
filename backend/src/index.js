@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import vehicleRoutes from "./routes/vehicles.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import routeLogsRoutes from './routes/routeLogs.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/api/vehicles", vehicleRoutes);
+app.use('/api/route-logs', routeLogsRoutes);
 
 // --- Ruta de prueba ---
 app.get("/", (req, res) => {
