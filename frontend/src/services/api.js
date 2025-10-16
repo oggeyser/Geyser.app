@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://192.168.1.246:4000/api";
+const API_BASE_URL = "https://geyser-backend.onrender.com";
 
 // === RouteLogs ===
 export const getRouteLogs = async () => {
