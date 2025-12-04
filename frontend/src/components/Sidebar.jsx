@@ -1,5 +1,5 @@
 import React from "react";
-import { Truck, ClipboardList, Users, BarChart3 } from "lucide-react";
+import { Truck, ClipboardList, Users, BarChart3, Map} from "lucide-react";
 
 const Sidebar = ({ activePage, setActivePage }) => {
   const menuItems = [
@@ -7,6 +7,7 @@ const Sidebar = ({ activePage, setActivePage }) => {
     { name: "Órdenes", icon: <ClipboardList size={20} /> },
     { name: "Técnicos", icon: <Users size={20} /> },
     { name: "Reportes", icon: <BarChart3 size={20} /> },
+    { name: "Hoja de Ruta", icon: <Map size={20} /> },
   ];
 
   return (

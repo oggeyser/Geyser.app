@@ -7,40 +7,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Vehicle {
-  id                 Int        @id @default(autoincrement())
-  patente            String     @unique
-  permisoCirculacion DateTime
-  revisionTecnica    DateTime
-  seguroObligatorio  DateTime
-  revisionGases      DateTime
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  documents          Document[]
-  routeLogs          RouteLog[]
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  TRANSFERRED
+}
+
+enum RouteLogStatus {
+  ACTIVE
+  FINISHED
+  TRANSFERRED
 }
 
 model Document {
-  id         Int      @id @default(autoincrement())
-  name       String
-  expiryDate DateTime
-  fileUrl    String
-  vehicleId  Int
-  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id])
-  createdAt  DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  type           String
+  filePath       String
+  fileName       String
+  issueDate      DateTime
+  expirationDate DateTime
+  vehicleId      Int
+  vehicle        Vehicle  @relation(fields: [vehicleId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model Vehicle {
+  id                    Int            @id @default(autoincrement())
+  plateNumber           String         @unique
+  circulationPermitDate DateTime
+  technicalReviewDate   DateTime
+  insuranceDate         DateTime
+  gasesReviewDate       DateTime
+
+  status                VehicleStatus  @default(AVAILABLE)
+
+  documents             Document[]
+  routeLogs             RouteLog[]
+
+  activeRouteLog        RouteLog?      @relation("ActiveRoute", fields: [activeRouteLogId], references: [id])
+  activeRouteLogId      Int?           @unique
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 }
 
 model RouteLog {
-  id          Int      @id @default(autoincrement())
-  driverName  String
-  vehicleId   Int
-  routeDate   DateTime @default(now())
-  origin      String
-  destination String
-  distanceKm  Float?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               Int           @id @default(autoincrement())
+  driverName       String
+  startMileage     Int
+  endMileage       Int?
+  startDate        DateTime
+  endDate          DateTime?
 
-  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id])
+  notesStart       String?
+  notesEnd         String?
+
+  imagesStart      String[]      @default([])
+  imagesEnd        String[]      @default([])
+
+  receiverName     String?
+  receiverSignature String?
+
+  status           RouteLogStatus @default(ACTIVE)
+
+  transferTo       String?
+
+  vehicleId        Int
+  vehicle          Vehicle        @relation(fields: [vehicleId], references: [id])
+
+  activeVehicle    Vehicle?       @relation("ActiveRoute")
 }

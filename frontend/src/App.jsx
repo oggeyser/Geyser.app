@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Ordenes from "./pages/Ordenes";
 import Tecnicos from "./pages/Tecnicos";
 import Reportes from "./pages/Reportes";
+import HojaRuta from "./pages/HojaRuta";
 
 const App = () => {
   const [activePage, setActivePage] = useState("Dashboard");
@@ -19,6 +20,8 @@ const App = () => {
         return <Tecnicos />;
       case "Reportes":
         return <Reportes />;
+      case "Hoja de Ruta":
+        return <HojaRuta />;
       default:
         return <Dashboard />;
     }

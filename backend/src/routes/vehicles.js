@@ -1,67 +1,132 @@
+// backend/src/routes/vehicles.js
 import express from "express";
-import prisma from "../prismaClient.js";
+import { PrismaClient } from "@prisma/client";
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
-
-// ejemplo GET de todos los vehículos
+// ======================================================
+// GET /api/vehicles  -> lista de vehículos + documentos
+// ======================================================
 router.get("/", async (req, res) => {
   try {
-    const vehicles = await prisma.vehicle.findMany();
-    res.json(vehicles);
-  } catch (error) {
-    res.status(500).json({ error: "Error al obtener vehículos" });
-  }
-});
-
-router.post("/", async (req, res) => {
-  try {
-    const vehicle = await prisma.vehicle.create({
-      data: {
-        patente: req.body.patente, // <--- cambiar aquí
-        permisoCirculacion: new Date(req.body.permisoCirculacion),
-        revisionTecnica: new Date(req.body.revisionTecnica),
-        seguroObligatorio: new Date(req.body.seguroObligatorio),
-        revisionGases: new Date(req.body.revisionGases),
-        // opcional: brand, model, year si lo agregas al schema
+    const vehicles = await prisma.vehicle.findMany({
+      orderBy: { id: "asc" },
+      include: {
+        documents: true, // 👈 para poder ver documentos en el frontend
       },
     });
-    res.json(vehicle);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error creando vehículo");
+    res.json(vehicles);
+  } catch (error) {
+    console.error("❌ Error obteniendo vehicles:", error);
+    res.status(500).json({ error: "Error obteniendo vehicles" });
   }
 });
 
+// ======================================================
+// POST /api/vehicles -> crear vehículo
+// body: { plateNumber, circulationPermitDate, technicalReviewDate, insuranceDate, gasesReviewDate }
+// ======================================================
+router.post("/", async (req, res) => {
+  try {
+    const {
+      plateNumber,
+      circulationPermitDate,
+      technicalReviewDate,
+      insuranceDate,
+      gasesReviewDate,
+    } = req.body;
 
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        plateNumber,
+        circulationPermitDate: new Date(circulationPermitDate),
+        technicalReviewDate: new Date(technicalReviewDate),
+        insuranceDate: new Date(insuranceDate),
+        gasesReviewDate: new Date(gasesReviewDate),
+      },
+    });
+
+    res.json(vehicle);
+  } catch (error) {
+    console.error("❌ Error creando vehicle:", error);
+    res.status(500).json({ error: "Error creando vehicle" });
+  }
+});
+
+// ======================================================
+// PUT /api/vehicles/:id/status  -> cambiar SOLO estado
+// body: { status: "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "TRANSFERRED" }
+// ======================================================
+router.put("/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowed = ["AVAILABLE", "IN_USE", "MAINTENANCE", "TRANSFERRED"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: "Estado inválido" });
+    }
+
+    const vehicle = await prisma.vehicle.update({
+      where: { id: Number(id) },
+      data: { status },
+    });
+
+    res.json(vehicle);
+  } catch (error) {
+    console.error("❌ Error actualizando estado de vehicle:", error);
+    res.status(500).json({ error: "Error actualizando estado" });
+  }
+});
+
+// ======================================================
+// PUT /api/vehicles/:id  -> actualizar datos del vehículo
+// ======================================================
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const {
+      plateNumber,
+      circulationPermitDate,
+      technicalReviewDate,
+      insuranceDate,
+      gasesReviewDate,
+    } = req.body;
+
     const vehicle = await prisma.vehicle.update({
-      where: { id: parseInt(id) },
+      where: { id: Number(id) },
       data: {
-        patente: req.body.patente, // <--- también aquí
-        permisoCirculacion: new Date(req.body.permisoCirculacion),
-        revisionTecnica: new Date(req.body.revisionTecnica),
-        seguroObligatorio: new Date(req.body.seguroObligatorio),
-        revisionGases: new Date(req.body.revisionGases),
+        plateNumber,
+        circulationPermitDate: new Date(circulationPermitDate),
+        technicalReviewDate: new Date(technicalReviewDate),
+        insuranceDate: new Date(insuranceDate),
+        gasesReviewDate: new Date(gasesReviewDate),
       },
     });
+
     res.json(vehicle);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error actualizando vehículo");
+  } catch (error) {
+    console.error("❌ Error actualizando vehicle:", error);
+    res.status(500).json({ error: "Error actualizando vehicle" });
   }
 });
 
+// ======================================================
+// DELETE /api/vehicles/:id -> eliminar vehículo
+// ======================================================
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.vehicle.delete({ where: { id: parseInt(id) } });
-    res.json({ message: "Vehículo eliminado" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error eliminando vehículo");
+
+    await prisma.vehicle.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ message: "Vehículo eliminado correctamente" });
+  } catch (error) {
+    console.error("❌ Error eliminando vehicle:", error);
+    res.status(500).json({ error: "Error eliminando vehicle" });
   }
 });
 

@@ -1,17 +1,21 @@
 {
-  "name": "backend",
+  "name": "flota-backend",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
+  "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:reset": "prisma migrate reset"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Backend para sistema de gestión de flota vehicular",
   "dependencies": {
     "@prisma/client": "^6.17.1",
     "@sendgrid/mail": "^8.1.6",

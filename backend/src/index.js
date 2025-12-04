@@ -7,15 +7,16 @@ import cron from "node-cron";
 import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 import vehicleRoutes from "./routes/vehicles.js";
-import routeLogsRoutes from "./routes/routeLogs.js";
+import routeLogsRoutes from "./routes/routeLogs.routes.js"; 
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-
-// Cargar variables de entorno
+import documentRoutes from "./routes/documents.routes.js";
 dotenv.config();
 
-// Inicializar Prisma y SendGrid
 const prisma = new PrismaClient();
+
+
+// Configuración SendGrid
 if (process.env.SENDGRID_API_KEY?.startsWith("SG.")) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
@@ -24,24 +25,31 @@ if (process.env.SENDGRID_API_KEY?.startsWith("SG.")) {
 
 const app = express();
 
-// --- Configuración de CORS ---
 app.use(cors());
 app.use(express.json());
 
-// --- Registrar rutas ---
+// --- RUTAS CORRECTAS ---
 app.use("/api/vehicles", vehicleRoutes);
-app.use("/api/route-logs", routeLogsRoutes);
+app.use("/api/routelogs", routeLogsRoutes); 
+app.use("/api/documents", documentRoutes);
 
-// --- Ruta raíz de prueba ---
+
+// Ruta de prueba
 app.get("/", (req, res) => {
   res.send("Backend funcionando correctamente");
 });
 
-// --- Configuración de uploads ---
+// Ruta de test para routelogs
+app.get("/api/routelogs/test", (req, res) => {
+  res.json({ message: "Ruta routelogs funcionando", timestamp: new Date() });
+});
+
+// --- CONFIGURACIÓN UPLOADS ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const uploadDir = path.join(__dirname, "..", "uploads");
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -49,12 +57,12 @@ const storage = multer.diskStorage({
     cb(null, unique + "-" + file.originalname);
   },
 });
+
 const upload = multer({ storage });
 
-// Servir archivos subidos (importante para Render)
 app.use("/uploads", express.static(uploadDir));
 
-// --- CRUD para Documentos ---
+// --- CRUD DOCUMENTOS ---
 app.post("/api/documents", upload.single("file"), async (req, res) => {
   try {
     const { type, issueDate, expirationDate, vehicleId } = req.body;
@@ -78,7 +86,7 @@ app.post("/api/documents", upload.single("file"), async (req, res) => {
   }
 });
 
-// --- Tarea automática (cron) para alertas de documentos ---
+// --- CRON JOB ---
 cron.schedule("0 8 * * *", async () => {
   try {
     const now = new Date();
@@ -98,7 +106,7 @@ cron.schedule("0 8 * * *", async () => {
     docs.forEach((d) => {
       html += `
         <li>
-          <strong>${d.vehicle.patente || d.vehicle.plateNumber}</strong> - ${d.type}
+          <strong>${d.vehicle.plateNumber}</strong> - ${d.type}
           vence el ${d.expirationDate.toISOString().slice(0, 10)}
           - <a href="${baseUrl}${d.filePath}" target="_blank">Ver archivo</a>
         </li>`;
@@ -118,7 +126,7 @@ cron.schedule("0 8 * * *", async () => {
   }
 });
 
-// --- Iniciar servidor ---
+// --- INICIO SERVIDOR ---
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Servidor iniciado en http://0.0.0.0:${PORT}`);
