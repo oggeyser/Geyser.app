@@ -29,7 +29,30 @@ if (process.env.SENDGRID_API_KEY?.startsWith("SG.")) {
 // -----------------------------------------------------
 // MIDDLEWARES
 // -----------------------------------------------------
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://geyser-app-drqv.vercel.app",
+  "https://geyser-app-drqv-a7sdfbcv4-osvaldos-projects-335a91ad.vercel.app"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log("❌ Bloqueado por CORS:", origin);
+      callback(new Error("No permitido por CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+console.log("🌍 Backend iniciado con CORS permitido para:", allowedOrigins);
+
+
 app.use(express.json());
 
 // -----------------------------------------------------

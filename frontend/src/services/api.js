@@ -1,7 +1,15 @@
-// frontend/src/services/api.js
+console.log("---- VARIABLES DE ENTORNO ----");
+console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
+console.log("API =", API);
+console.log("-------------------------------");
+
 import axios from "axios";
 
-const API = "http://localhost:4000/api";
+// Usamos variable de entorno de Vite
+// En producción -> viene de Vercel
+// En desarrollo -> si no existe, usa localhost
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+console.log("API URL usada:", API);
 
 /* =====================================================
    VEHÍCULOS
@@ -51,7 +59,7 @@ export async function getRouteLogsByVehicle(vehicleId) {
   return res.data;
 }
 
-// Crear un inicio de hoja de ruta (desde frontend no lo usamos aún, pero queda listo)
+// Crear un inicio de hoja de ruta
 export async function createRouteLog(formData) {
   const res = await axios.post(`${API}/routelogs`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -68,17 +76,16 @@ export async function transferRouteLog(id, formData) {
 }
 
 /* =====================================================
-   DOCUMENTOS (TIPO FIJO)
+   DOCUMENTOS
 ===================================================== */
 
-// Obtener documentos de un vehículo
+// Obtener documentos por vehículo
 export async function getDocumentsByVehicle(vehicleId) {
   const res = await axios.get(`${API}/documents/${vehicleId}`);
   return res.data;
 }
 
-// Subir documento para un vehículo
-// formData debe incluir: type, issueDate, expirationDate, file
+// Subir documento
 export async function uploadDocument(vehicleId, formData) {
   const res = await axios.post(`${API}/documents/${vehicleId}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
