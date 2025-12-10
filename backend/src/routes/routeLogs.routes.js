@@ -1,34 +1,16 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
+import { uploadToR2 } from "../services/r2Client.js";
 
 const prisma = new PrismaClient();
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// ----------------------
-// CONFIGURACIÓN MULTER
-// ----------------------
-const uploadDir = path.join(__dirname, "..", "uploads");
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
-    cb(null, unique);
-  },
-});
-
+// Usamos memoria para que los archivos estén en req.file.buffer
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-/* =====================================================
-   GET TODOS LOS REGISTROS O FILTRADOS POR VEHÍCULO
-===================================================== */
+/* GET TODOS O POR VEHÍCULO */
 router.get("/", async (req, res) => {
   const { vehicleId } = req.query;
 
@@ -48,9 +30,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* =====================================================
-   GET /ACTIVE → ÚLTIMO REGISTRO POR VEHÍCULO
-===================================================== */
+/* GET /ACTIVE → ÚLTIMO REGISTRO POR VEHÍCULO */
 router.get("/active", async (req, res) => {
   try {
     const lastLogs = await prisma.routeLog.groupBy({
@@ -73,9 +53,7 @@ router.get("/active", async (req, res) => {
   }
 });
 
-/* =====================================================
-   CREAR HOJA DE RUTA (INICIO)
-===================================================== */
+/* CREAR HOJA DE RUTA (INICIO) */
 router.post("/", upload.array("imagesStart", 10), async (req, res) => {
   try {
     const { driverName, startMileage, vehicleId, notesStart } = req.body;
@@ -84,9 +62,12 @@ router.post("/", upload.array("imagesStart", 10), async (req, res) => {
       return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
 
-    const images = (req.files || []).map(
-      (file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`
-    );
+    // Subir imágenes de inicio (si existen)
+    const images = [];
+    for (const file of req.files || []) {
+      const url = await uploadToR2("routelogs/start", file);
+      images.push(url);
+    }
 
     const newLog = await prisma.routeLog.create({
       data: {
@@ -107,9 +88,7 @@ router.post("/", upload.array("imagesStart", 10), async (req, res) => {
   }
 });
 
-/* =====================================================
-   TRANSFERENCIA / RECEPCIÓN VEHÍCULO
-===================================================== */
+/* TRANSFERENCIA / RECEPCIÓN VEHÍCULO */
 router.put("/:id/transfer", upload.array("photos", 10), async (req, res) => {
   const { id } = req.params;
   const { receiverName, endMileage, notesEnd } = req.body;
@@ -119,9 +98,12 @@ router.put("/:id/transfer", upload.array("photos", 10), async (req, res) => {
   }
 
   try {
-    const images = (req.files || []).map(
-      (file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`
-    );
+    // Subir imágenes de recepción (si existen)
+    const images = [];
+    for (const file of req.files || []) {
+      const url = await uploadToR2("routelogs/end", file);
+      images.push(url);
+    }
 
     const previous = await prisma.routeLog.update({
       where: { id: Number(id) },

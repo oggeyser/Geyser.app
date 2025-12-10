@@ -1,31 +1,15 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
+import { uploadToR2 } from "../services/r2Client.js";
 
 const prisma = new PrismaClient();
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const uploadDir = path.join(__dirname, "..", "uploads");
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
-    cb(null, unique);
-  },
-});
-
+// Usaremos memoria, no disco
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-/* =====================================
-   TIPOS DE DOCUMENTO PERMITIDOS
-===================================== */
 const ALLOWED_TYPES = [
   "PERMISO",
   "REVISION_TECNICA",
@@ -34,9 +18,7 @@ const ALLOWED_TYPES = [
   "OTRO",
 ];
 
-/* =====================================
-   SUBIR DOCUMENTO PARA VEHÍCULO
-===================================== */
+/* SUBIR DOCUMENTO PARA VEHÍCULO */
 router.post("/:vehicleId", upload.single("file"), async (req, res) => {
   try {
     const { type, issueDate, expirationDate } = req.body;
@@ -50,7 +32,8 @@ router.post("/:vehicleId", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "No se subió ningún archivo" });
     }
 
-    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    // Subir archivo a R2
+    const fileUrl = await uploadToR2("documents", req.file);
 
     const doc = await prisma.document.create({
       data: {
@@ -70,9 +53,7 @@ router.post("/:vehicleId", upload.single("file"), async (req, res) => {
   }
 });
 
-/* =====================================
-   OBTENER DOCUMENTOS DE UN VEHÍCULO
-===================================== */
+/* OBTENER DOCUMENTOS DE UN VEHÍCULO */
 router.get("/:vehicleId", async (req, res) => {
   try {
     const docs = await prisma.document.findMany({
@@ -87,9 +68,7 @@ router.get("/:vehicleId", async (req, res) => {
   }
 });
 
-/* =====================================
-   ELIMINAR DOCUMENTO
-===================================== */
+/* ELIMINAR DOCUMENTO */
 router.delete("/:id", async (req, res) => {
   try {
     await prisma.document.delete({

@@ -7,44 +7,51 @@ import cron from "node-cron";
 import sgMail from "@sendgrid/mail";
 import dotenv from "dotenv";
 import vehicleRoutes from "./routes/vehicles.js";
-import routeLogsRoutes from "./routes/routeLogs.routes.js"; 
+import routeLogsRoutes from "./routes/routeLogs.routes.js";
+import documentRoutes from "./routes/documents.routes.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import documentRoutes from "./routes/documents.routes.js";
+
 dotenv.config();
 
 const prisma = new PrismaClient();
+const app = express();
 
-
-// Configuración SendGrid
+// -----------------------------------------------------
+// CONFIG SENDGRID
+// -----------------------------------------------------
 if (process.env.SENDGRID_API_KEY?.startsWith("SG.")) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
-  console.warn("⚠️  SENDGRID_API_KEY inválida o no configurada.");
+  console.warn("⚠️ SENDGRID_API_KEY inválida o no configurada.");
 }
 
-const app = express();
-
+// -----------------------------------------------------
+// MIDDLEWARES
+// -----------------------------------------------------
 app.use(cors());
 app.use(express.json());
 
-// --- RUTAS CORRECTAS ---
+// -----------------------------------------------------
+// RUTAS PRINCIPALES
+// -----------------------------------------------------
 app.use("/api/vehicles", vehicleRoutes);
-app.use("/api/routelogs", routeLogsRoutes); 
+app.use("/api/routelogs", routeLogsRoutes);
 app.use("/api/documents", documentRoutes);
 
-
-// Ruta de prueba
+// Ruta root
 app.get("/", (req, res) => {
   res.send("Backend funcionando correctamente");
 });
 
-// Ruta de test para routelogs
+// Ruta test
 app.get("/api/routelogs/test", (req, res) => {
   res.json({ message: "Ruta routelogs funcionando", timestamp: new Date() });
 });
 
-// --- CONFIGURACIÓN UPLOADS ---
+// -----------------------------------------------------
+// CONFIGURACIÓN UPLOADS LOCALES (SOLO DOCUMENTOS POR AHORA)
+// -----------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -60,9 +67,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// expone /uploads para servir documentos
 app.use("/uploads", express.static(uploadDir));
 
-// --- CRUD DOCUMENTOS ---
+// -----------------------------------------------------
+// CRUD DOCUMENTOS
+// -----------------------------------------------------
 app.post("/api/documents", upload.single("file"), async (req, res) => {
   try {
     const { type, issueDate, expirationDate, vehicleId } = req.body;
@@ -86,8 +96,10 @@ app.post("/api/documents", upload.single("file"), async (req, res) => {
   }
 });
 
-// --- CRON JOB ---
-cron.schedule("0 8 * * *", async () => {
+// -----------------------------------------------------
+// FUNCIÓN REUTILIZABLE PARA ALERTAS DE DOCUMENTOS
+// -----------------------------------------------------
+async function sendDocumentsExpirationEmail() {
   try {
     const now = new Date();
     const in30 = new Date();
@@ -98,11 +110,14 @@ cron.schedule("0 8 * * *", async () => {
       include: { vehicle: true },
     });
 
-    if (!docs.length) return;
+    if (!docs.length) {
+      console.log("📭 No hay documentos por vencer");
+      return;
+    }
 
-    let html = "<h3>Documentos por vencer o vencidos</h3><ul>";
     const baseUrl = process.env.BACKEND_URL || "http://localhost:4000";
 
+    let html = "<h3>Documentos por vencer o vencidos</h3><ul>";
     docs.forEach((d) => {
       html += `
         <li>
@@ -122,11 +137,30 @@ cron.schedule("0 8 * * *", async () => {
 
     console.log(`📧 Alerta enviada con ${docs.length} documentos.`);
   } catch (err) {
-    console.error("❌ Error en cron job:", err);
+    console.error("❌ Error en envío de alertas:", err);
   }
+}
+
+// -----------------------------------------------------
+// CRON INTERNO DEL SERVIDOR (siempre que el backend esté prendido)
+// Se ejecuta todos los días a las 08:00
+// -----------------------------------------------------
+cron.schedule("0 8 * * *", async () => {
+  console.log("⏰ Ejecutando cron interno de documentos...");
+  await sendDocumentsExpirationEmail();
 });
 
-// --- INICIO SERVIDOR ---
+// -----------------------------------------------------
+// ENDPOINT COMPATIBLE CON CRON-JOB.ORG
+// -----------------------------------------------------
+app.get("/api/cron/doc-expirations", async (req, res) => {
+  await sendDocumentsExpirationEmail();
+  res.json({ ok: true });
+});
+
+// -----------------------------------------------------
+// INICIO DEL SERVIDOR
+// -----------------------------------------------------
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Servidor iniciado en http://0.0.0.0:${PORT}`);
