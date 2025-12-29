@@ -1,100 +1,86 @@
-console.log("---- VARIABLES DE ENTORNO ----");
-console.log("VITE_API_URL =", import.meta.env.VITE_API_URL);
-console.log("API =", API);
-console.log("-------------------------------");
-
+// frontend/src/services/api.js
 import axios from "axios";
 
-// Usamos variable de entorno de Vite
-// En producción -> viene de Vercel
-// En desarrollo -> si no existe, usa localhost
-const API = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
-console.log("API URL usada:", API);
+// Lee variable de Vercel/Vite
+//const API = import.meta.env.VITE_API_URL;
+const API = window.__ENV__?.VITE_API_URL;
 
-/* =====================================================
-   VEHÍCULOS
-===================================================== */
+// Si por algún motivo no está, en dev usamos localhost.
+// En PRODUCCIÓN preferimos fallar explícitamente para detectar el error rápido.
+if (!API) {
+  if (import.meta.env.PROD) {
+    console.error("❌ VITE_API_URL NO está definida en producción. Revisa variables en Vercel.");
+  }
+}
 
-// Obtener todos los vehículos
+const BASE = API || "http://localhost:4000/api";
+
+// Axios instance (opcional pero recomendado)
+const http = axios.create({
+  baseURL: BASE,
+});
+
 export async function getVehicles() {
-  const res = await axios.get(`${API}/vehicles`);
+  const res = await http.get(`/vehicles`);
   return res.data;
 }
 
-// Crear vehículo
 export async function createVehicle(vehicleData) {
-  const res = await axios.post(`${API}/vehicles`, vehicleData);
+  const res = await http.post(`/vehicles`, vehicleData);
   return res.data;
 }
 
-// Editar vehículo
 export async function updateVehicle(id, vehicleData) {
-  const res = await axios.put(`${API}/vehicles/${id}`, vehicleData);
+  const res = await http.put(`/vehicles/${id}`, vehicleData);
   return res.data;
 }
 
-// Eliminar vehículo
 export async function deleteVehicle(id) {
-  const res = await axios.delete(`${API}/vehicles/${id}`);
+  const res = await http.delete(`/vehicles/${id}`);
   return res.data;
 }
 
-/* =====================================================
-   HOJA DE RUTA (RouteLog)
-===================================================== */
-
-// Obtener todos los logs o logs filtrados por vehículo
 export async function getRouteLogs(vehicleId = null) {
-  const res = await axios.get(`${API}/routelogs`, {
+  const res = await http.get(`/routelogs`, {
     params: vehicleId ? { vehicleId } : {},
   });
   return res.data;
 }
 
-// Obtener historial por vehículo
 export async function getRouteLogsByVehicle(vehicleId) {
-  const res = await axios.get(`${API}/routelogs`, {
+  const res = await http.get(`/routelogs`, {
     params: { vehicleId },
   });
   return res.data;
 }
 
-// Crear un inicio de hoja de ruta
 export async function createRouteLog(formData) {
-  const res = await axios.post(`${API}/routelogs`, formData, {
+  const res = await http.post(`/routelogs`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data;
 }
 
-// Registrar recepción del vehículo
 export async function transferRouteLog(id, formData) {
-  const res = await axios.put(`${API}/routelogs/${id}/transfer`, formData, {
+  const res = await http.put(`/routelogs/${id}/transfer`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data;
 }
 
-/* =====================================================
-   DOCUMENTOS
-===================================================== */
-
-// Obtener documentos por vehículo
 export async function getDocumentsByVehicle(vehicleId) {
-  const res = await axios.get(`${API}/documents/${vehicleId}`);
+  const res = await http.get(`/documents/${vehicleId}`);
   return res.data;
 }
 
-// Subir documento
 export async function uploadDocument(vehicleId, formData) {
-  const res = await axios.post(`${API}/documents/${vehicleId}`, formData, {
+  const res = await http.post(`/documents/${vehicleId}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return res.data;
 }
 
-// Eliminar documento
 export async function deleteDocument(documentId) {
-  const res = await axios.delete(`${API}/documents/${documentId}`);
+  const res = await http.delete(`/documents/${documentId}`);
   return res.data;
 }
