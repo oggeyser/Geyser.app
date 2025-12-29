@@ -1,25 +1,26 @@
 // frontend/src/services/api.js
 import axios from "axios";
 
-// Lee variable de Vercel/Vite
-//const API = import.meta.env.VITE_API_URL;
-const API = window.__ENV__?.VITE_API_URL;
+// 1) Runtime env (PRODUCCIÓN y DEV)
+const RUNTIME_API = window.__ENV__?.API_URL;
 
-// Si por algún motivo no está, en dev usamos localhost.
-// En PRODUCCIÓN preferimos fallar explícitamente para detectar el error rápido.
-if (!API) {
-  if (import.meta.env.PROD) {
-    console.error("❌ VITE_API_URL NO está definida en producción. Revisa variables en Vercel.");
-  }
-}
+// 2) Build env (por si quieres mantener compatibilidad)
+const BUILD_API = import.meta.env?.VITE_API_URL;
 
-const BASE = API || "http://localhost:4000/api";
+// 3) Fallback local (solo para desarrollo real)
+const FALLBACK_LOCAL = "http://localhost:4000/api";
 
-// Axios instance (opcional pero recomendado)
+const API = RUNTIME_API || BUILD_API || FALLBACK_LOCAL;
+
+console.log("✅ API BASE EN USO:", API);
+
 const http = axios.create({
-  baseURL: BASE,
+  baseURL: API,
 });
 
+/* =========================
+   VEHÍCULOS
+========================= */
 export async function getVehicles() {
   const res = await http.get(`/vehicles`);
   return res.data;
@@ -40,6 +41,9 @@ export async function deleteVehicle(id) {
   return res.data;
 }
 
+/* =========================
+   HOJA DE RUTA (RouteLog)
+========================= */
 export async function getRouteLogs(vehicleId = null) {
   const res = await http.get(`/routelogs`, {
     params: vehicleId ? { vehicleId } : {},
@@ -68,6 +72,9 @@ export async function transferRouteLog(id, formData) {
   return res.data;
 }
 
+/* =========================
+   DOCUMENTOS
+========================= */
 export async function getDocumentsByVehicle(vehicleId) {
   const res = await http.get(`/documents/${vehicleId}`);
   return res.data;
