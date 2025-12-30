@@ -36,19 +36,16 @@ const allowedOrigins = [
   "https://geyser-app-drqv-a7sdfbcv4-osvaldos-projects-335a91ad.vercel.app"
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log("❌ Bloqueado por CORS:", origin);
-      callback(new Error("No permitido por CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+import cors from "cors";
+
+app.use(
+  cors({
+    origin: true, // permite Vercel y previews
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 
 console.log("🌍 Backend iniciado con CORS permitido para:", allowedOrigins);
 
