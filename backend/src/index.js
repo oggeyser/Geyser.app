@@ -17,77 +17,108 @@ dotenv.config();
 const prisma = new PrismaClient();
 const app = express();
 
-/* -----------------------------------------------------
-   SENDGRID
------------------------------------------------------ */
+// si estás detrás de Render / proxy
+app.set("trust proxy", 1);
+
+// -----------------------------------------------------
+// CONFIG SENDGRID
+// -----------------------------------------------------
 if (process.env.SENDGRID_API_KEY?.startsWith("SG.")) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
   console.warn("⚠️ SENDGRID_API_KEY inválida o no configurada.");
 }
 
-/* -----------------------------------------------------
-   CORS
------------------------------------------------------ */
-const allowedOrigins = [
+// -----------------------------------------------------
+// CORS
+// - Permite localhost
+// - Permite tu dominio Vercel principal
+// - Permite previews *.vercel.app
+// -----------------------------------------------------
+const allowedExact = new Set([
   "http://localhost:5173",
   "http://localhost:3000",
   "https://geyser-app-drqv.vercel.app",
-];
+]);
 
-// Permite previews de Vercel: *.vercel.app
-function isAllowedOrigin(origin) {
-  if (!origin) return true; // Postman/curl o requests sin origin
-  if (allowedOrigins.includes(origin)) return true;
-  if (origin.endsWith(".vercel.app")) return true;
-  return false;
+function corsOrigin(origin, cb) {
+  // requests tipo curl/postman no traen origin
+  if (!origin) return cb(null, true);
+
+  if (allowedExact.has(origin)) return cb(null, true);
+  if (origin.endsWith(".vercel.app")) return cb(null, true);
+
+  return cb(new Error(`CORS bloqueado para origin: ${origin}`), false);
 }
 
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (isAllowedOrigin(origin)) return cb(null, true);
-      return cb(new Error(`CORS bloqueado para origin: ${origin}`));
-    },
-    credentials: false,
+    origin: corsOrigin,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-console.log("🌍 CORS habilitado. Allowed base origins:", allowedOrigins);
-
 app.use(express.json());
 
-/* -----------------------------------------------------
-   RUTAS
------------------------------------------------------ */
+// -----------------------------------------------------
+// RUTAS PRINCIPALES
+// -----------------------------------------------------
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/routelogs", routeLogsRoutes);
 app.use("/api/documents", documentRoutes);
 
-// Root
-app.get("/", (req, res) => {
-  res.send("Backend funcionando correctamente");
-});
+app.get("/", (req, res) => res.send("Backend funcionando correctamente"));
+app.get("/api/health", (req, res) => res.json({ ok: true, at: new Date() }));
 
-// Test routelogs
-app.get("/api/routelogs/test", (req, res) => {
-  res.json({ message: "Ruta routelogs funcionando", timestamp: new Date() });
-});
-
-/* -----------------------------------------------------
-   UPLOADS LOCALES (si tu documents.routes.js usa /uploads)
------------------------------------------------------ */
+// -----------------------------------------------------
+// UPLOADS LOCALES (solo si todavía lo usas)
+// -----------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const uploadDir = path.join(__dirname, "..", "uploads");
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, unique + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage });
 app.use("/uploads", express.static(uploadDir));
 
-/* -----------------------------------------------------
-   ALERTAS DOCUMENTOS (CRON)
------------------------------------------------------ */
+// -----------------------------------------------------
+// CRUD DOCUMENTOS (si lo sigues usando)
+// -----------------------------------------------------
+app.post("/api/documents", upload.single("file"), async (req, res) => {
+  try {
+    const { type, issueDate, expirationDate, vehicleId } = req.body;
+    if (!req.file) return res.status(400).json({ error: "Falta el archivo" });
+
+    const document = await prisma.document.create({
+      data: {
+        type,
+        filePath: `/uploads/${req.file.filename}`,
+        fileName: req.file.originalname,
+        issueDate: new Date(issueDate),
+        expirationDate: new Date(expirationDate),
+        vehicle: { connect: { id: Number(vehicleId) } },
+      },
+    });
+
+    res.json(document);
+  } catch (err) {
+    console.error("❌ Error creando documento:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -----------------------------------------------------
+// ALERTAS
+// -----------------------------------------------------
 async function sendDocumentsExpirationEmail() {
   try {
     const now = new Date();
@@ -117,11 +148,6 @@ async function sendDocumentsExpirationEmail() {
     });
     html += "</ul>";
 
-    if (!process.env.ADMIN_EMAIL || !process.env.SENDER_EMAIL) {
-      console.warn("⚠️ Falta ADMIN_EMAIL o SENDER_EMAIL. No se envía correo.");
-      return;
-    }
-
     await sgMail.send({
       to: process.env.ADMIN_EMAIL,
       from: process.env.SENDER_EMAIL,
@@ -135,21 +161,16 @@ async function sendDocumentsExpirationEmail() {
   }
 }
 
-// Cron interno 08:00 diario
 cron.schedule("0 8 * * *", async () => {
   console.log("⏰ Ejecutando cron interno de documentos...");
   await sendDocumentsExpirationEmail();
 });
 
-// Endpoint para cron-job.org
 app.get("/api/cron/doc-expirations", async (req, res) => {
   await sendDocumentsExpirationEmail();
   res.json({ ok: true });
 });
 
-/* -----------------------------------------------------
-   START
------------------------------------------------------ */
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Servidor iniciado en http://0.0.0.0:${PORT}`);
