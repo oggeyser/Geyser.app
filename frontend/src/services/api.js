@@ -1,6 +1,9 @@
+// frontend/src/services/api.js
 import { http } from "./http";
 
-/* VEHÍCULOS */
+/* =========================
+   VEHÍCULOS
+========================= */
 export async function getVehicles() {
   const res = await http.get(`/vehicles`);
   return res.data;
@@ -21,7 +24,9 @@ export async function deleteVehicle(id) {
   return res.data;
 }
 
-/* HOJA DE RUTA */
+/* =========================
+   HOJA DE RUTA
+========================= */
 export async function getRouteLogs(vehicleId = null) {
   const res = await http.get(`/routelogs`, {
     params: vehicleId ? { vehicleId } : {},
@@ -34,6 +39,7 @@ export async function getRouteLogsByVehicle(vehicleId) {
   return res.data;
 }
 
+// ✅ Activos (lo usa HojaRuta)
 export async function getActiveRouteLogs() {
   const res = await http.get(`/routelogs/active`);
   return res.data;
@@ -53,7 +59,9 @@ export async function transferRouteLog(id, formData) {
   return res.data;
 }
 
-/* DOCUMENTOS */
+/* =========================
+   DOCUMENTOS
+========================= */
 export async function getDocumentsByVehicle(vehicleId) {
   const res = await http.get(`/documents/${vehicleId}`);
   return res.data;

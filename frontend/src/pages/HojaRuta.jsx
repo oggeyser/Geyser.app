@@ -1,5 +1,10 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useEffect, useState } from "react";
+import {
+  getVehicles,
+  getActiveRouteLogs,
+  createRouteLog,
+  transferRouteLog,
+} from "../services/api";
 
 export default function HojaRuta() {
   const [vehicles, setVehicles] = useState([]);
@@ -24,65 +29,70 @@ export default function HojaRuta() {
   const [notesEnd, setNotesEnd] = useState("");
   const [imagesEnd, setImagesEnd] = useState([]);
 
-  // Cargar vehículos + último registro por vehículo
   useEffect(() => {
-    loadVehicles();
-    loadLogs();
+    reloadAll();
   }, []);
 
-  const loadVehicles = () => {
-    axios
-      .get("http://localhost:4000/api/vehicles")
-      .then((res) => setVehicles(res.data))
-      .catch((err) => console.error("Error al cargar vehículos:", err));
-  };
+  async function reloadAll() {
+    await Promise.all([loadVehicles(), loadLogs()]);
+  }
 
-  const loadLogs = () => {
-    axios
-      .get("http://localhost:4000/api/routelogs/active")
-      .then((res) => setLogs(res.data))
-      .catch((err) => console.error("Error cargando logs activos:", err));
-  };
+  async function loadVehicles() {
+    try {
+      const data = await getVehicles();
+      setVehicles(data);
+    } catch (err) {
+      console.error("Error al cargar vehículos:", err);
+    }
+  }
+
+  async function loadLogs() {
+    try {
+      const data = await getActiveRouteLogs();
+      setLogs(data);
+    } catch (err) {
+      console.error("Error cargando logs activos:", err);
+    }
+  }
 
   /* =============================
      CREAR NUEVA HOJA DE RUTA
   ============================== */
-
   const handleCreateRoute = async () => {
     if (!vehicleId || !driverName || !startMileage) {
       alert("Completa todos los campos obligatorios");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("driverName", driverName);
-    formData.append("startMileage", startMileage);
-    formData.append("vehicleId", vehicleId);
-    formData.append("notesStart", notesStart);
+    try {
+      const formData = new FormData();
+      formData.append("driverName", driverName);
+      formData.append("startMileage", startMileage);
+      formData.append("vehicleId", vehicleId);
+      formData.append("notesStart", notesStart);
 
-    for (let img of imagesStart) {
-      formData.append("imagesStart", img);
+      for (const img of imagesStart) formData.append("imagesStart", img);
+
+      await createRouteLog(formData);
+
+      // limpiar formulario
+      setVehicleId("");
+      setDriverName("");
+      setStartMileage("");
+      setNotesStart("");
+      setImagesStart([]);
+      setShowForm(false);
+
+      await loadLogs();
+    } catch (err) {
+      console.error("Error creando hoja de ruta:", err);
+      alert("No se pudo crear la hoja de ruta");
     }
-
-    await axios.post("http://localhost:4000/api/routelogs", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    // limpiar formulario
-    setVehicleId("");
-    setDriverName("");
-    setStartMileage("");
-    setNotesStart("");
-    setImagesStart([]);
-    setShowForm(false);
-
-    loadLogs();
   };
 
   /* =============================
      ABRIR MODAL DE RECEPCIÓN
   ============================== */
-
   const openTransferModal = (log) => {
     setSelectedLog(log);
     setReceiverName("");
@@ -95,37 +105,38 @@ export default function HojaRuta() {
   /* =============================
      REGISTRAR RECEPCIÓN
   ============================== */
-
   const handleTransfer = async () => {
     if (!receiverName || !endMileage) {
       alert("Completa los datos de recepción");
       return;
     }
-
-    const formData = new FormData();
-    formData.append("receiverName", receiverName);
-    formData.append("endMileage", endMileage);
-    formData.append("notesEnd", notesEnd);
-
-    for (let img of imagesEnd) {
-      formData.append("photos", img);
+    if (!selectedLog?.id) {
+      alert("No hay registro seleccionado");
+      return;
     }
 
-    await axios.put(
-      `http://localhost:4000/api/routelogs/${selectedLog.id}/transfer`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
+    try {
+      const formData = new FormData();
+      formData.append("receiverName", receiverName);
+      formData.append("endMileage", endMileage);
+      formData.append("notesEnd", notesEnd);
 
-    alert("Recepción registrada correctamente");
+      for (const img of imagesEnd) formData.append("photos", img);
 
-    setShowModal(false);
-    loadLogs();
+      await transferRouteLog(selectedLog.id, formData);
+
+      alert("Recepción registrada correctamente");
+      setShowModal(false);
+
+      await loadLogs();
+    } catch (err) {
+      console.error("Error registrando recepción:", err);
+      alert("No se pudo registrar la recepción");
+    }
   };
 
   return (
     <div className="p-6">
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Hoja de Ruta</h1>
@@ -141,7 +152,6 @@ export default function HojaRuta() {
       {/* FORMULARIO DE INICIO */}
       {showForm && (
         <div className="bg-white shadow-xl rounded-2xl p-6 mb-6 space-y-4">
-
           <div>
             <label className="font-semibold">Vehículo *</label>
             <select
@@ -212,7 +222,6 @@ export default function HojaRuta() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {logs.map((log) => (
           <div key={log.id} className="bg-white border rounded-xl p-5 shadow">
-
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xl font-bold">{log.vehicle?.plateNumber}</h3>
               <span className="px-3 py-1 rounded-full bg-orange-500 text-white text-xs uppercase">
@@ -220,9 +229,16 @@ export default function HojaRuta() {
               </span>
             </div>
 
-            <p><strong>Inicio:</strong> {new Date(log.startDate).toLocaleString()}</p>
-            <p><strong>Conductor:</strong> {log.driverName}</p>
-            <p><strong>KM Inicio:</strong> {log.startMileage} km</p>
+            <p>
+              <strong>Inicio:</strong>{" "}
+              {log.startDate ? new Date(log.startDate).toLocaleString() : "-"}
+            </p>
+            <p>
+              <strong>Conductor:</strong> {log.driverName}
+            </p>
+            <p>
+              <strong>KM Inicio:</strong> {log.startMileage} km
+            </p>
 
             <button
               onClick={() => openTransferModal(log)}
@@ -232,6 +248,7 @@ export default function HojaRuta() {
             </button>
           </div>
         ))}
+
         {logs.length === 0 && (
           <p className="text-gray-500 col-span-full">
             No hay registros activos. Crea una nueva hoja de ruta.
@@ -243,7 +260,6 @@ export default function HojaRuta() {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center p-6">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-
             <h2 className="text-xl font-bold mb-4">Recepción del vehículo</h2>
 
             <label className="font-semibold">Nombre receptor *</label>
@@ -296,7 +312,6 @@ export default function HojaRuta() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

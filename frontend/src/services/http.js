@@ -1,14 +1,22 @@
+
 import axios from "axios";
 
-const fromWindow = window.__ENV__?.API_URL;              //  env.js
-const fromVite = import.meta.env.VITE_API_URL;           // Vercel env
-const fallback = "http://localhost:4000/api";            // solo dev
+function resolveBaseURL() {
+  // 1) Runtime env.js (si lo estás usando)
+  if (typeof window !== "undefined" && window.__ENV__?.VITE_API_URL) {
+    return window.__ENV__.VITE_API_URL;
+  }
 
-const baseURL = fromWindow || fromVite || fallback;
+  // 2) Vite build-time env (Vercel)
+  if (import.meta?.env?.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
 
-// Log visible en producción 
-console.log("🌐 API BASE:", baseURL);
+  // 3) fallback SOLO para desarrollo local
+  return "http://localhost:4000/api";
+}
 
 export const http = axios.create({
-  baseURL,
+  baseURL: resolveBaseURL(),
 });
+
