@@ -1,26 +1,6 @@
-// frontend/src/services/api.js
-import axios from "axios";
+import { http } from "./http";
 
-// 1) Runtime env (PRODUCCIÓN y DEV)
-const RUNTIME_API = window.__ENV__?.API_URL;
-
-// 2) Build env (por si quieres mantener compatibilidad)
-const BUILD_API = import.meta.env?.VITE_API_URL;
-
-// 3) Fallback local (solo para desarrollo real)
-const FALLBACK_LOCAL = "http://localhost:4000/api";
-
-const API = RUNTIME_API || BUILD_API || FALLBACK_LOCAL;
-
-console.log("✅ API BASE EN USO:", API);
-
-const http = axios.create({
-  baseURL: API,
-});
-
-/* =========================
-   VEHÍCULOS
-========================= */
+/* VEHÍCULOS */
 export async function getVehicles() {
   const res = await http.get(`/vehicles`);
   return res.data;
@@ -41,9 +21,7 @@ export async function deleteVehicle(id) {
   return res.data;
 }
 
-/* =========================
-   HOJA DE RUTA (RouteLog)
-========================= */
+/* HOJA DE RUTA */
 export async function getRouteLogs(vehicleId = null) {
   const res = await http.get(`/routelogs`, {
     params: vehicleId ? { vehicleId } : {},
@@ -52,9 +30,12 @@ export async function getRouteLogs(vehicleId = null) {
 }
 
 export async function getRouteLogsByVehicle(vehicleId) {
-  const res = await http.get(`/routelogs`, {
-    params: { vehicleId },
-  });
+  const res = await http.get(`/routelogs`, { params: { vehicleId } });
+  return res.data;
+}
+
+export async function getActiveRouteLogs() {
+  const res = await http.get(`/routelogs/active`);
   return res.data;
 }
 
@@ -72,9 +53,7 @@ export async function transferRouteLog(id, formData) {
   return res.data;
 }
 
-/* =========================
-   DOCUMENTOS
-========================= */
+/* DOCUMENTOS */
 export async function getDocumentsByVehicle(vehicleId) {
   const res = await http.get(`/documents/${vehicleId}`);
   return res.data;
