@@ -25,8 +25,13 @@ router.get("/", async (req, res) => {
 
     res.json(logs);
   } catch (err) {
-    console.error("❌ GET route logs:", err);
-    res.status(500).json({ error: "Error obteniendo los registros" });
+   console.error("❌ Error procesando recepción:", err);
+    res.status(500).json({
+      error: "Error procesando recepción",
+      detail: err?.message,
+      code: err?.code,
+    });
+
   }
 });
 
